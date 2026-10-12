@@ -1,0 +1,26 @@
+1. 数据定义
+LabPosition 保存位置，LabSpeed 保存速度，LabFrozen 标记冻结。它们没有自己的 Update。Entities 的组件数据是运行结果的权威来源。
+
+2. CreateWorld
+创建实验自己的 World 和 LabMoveSystem。系统被 DisableAutoCreation 标记，避免自动加入默认 World。这里手动推进，便于单步与固定步长测试。
+
+3. Spawn
+CreateArchetype 定义 Position + Speed 组合；CreateEntity 创建身份；SetComponentData 初始化数值。字典中的 GameObject 只负责看见数据。
+
+4. LabMoveSystem.OnCreate
+查询声明 Position 可写、Speed 只读、排除 Frozen。声明对应了行为真正需要的数据。
+
+5. Simulate / OnUpdate
+先用 SetTime 设置 dt，然后调用 movement.Update。每个匹配实体按 speed × dt 更新 X。到边界回绕。临时实体数组通过 using 释放；这是易读教学版本，不是优化基准。
+
+6. SyncViews
+只读组件结果，把位置写到表现对象。它没有决定运动，也不把表现坐标反写成实体数据。
+
+7. 冻结与销毁
+添加 Frozen 改变组件组合，查询不再匹配它；移除后继续匹配。DestroyEntity 后 Exists 为 false，不应再读取旧句柄。
+
+8. DisposeWorld
+停止连续模拟并释放实验拥有的 World。场景退出同样走 DisposeLab，不销毁默认 World。
+
+9. 测试如何证明
+第一个实体速度 2，dt=0.5，位移应为 1；冻结前后的组件位置相同；解冻后改变；视觉位置等于组件位置；销毁句柄无效；退出后 IsCreated=false。

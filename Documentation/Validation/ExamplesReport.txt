@@ -1,0 +1,5 @@
+PASS: four built-in-API examples compiled against Unity 2022.3.62f3c1 assemblies.
+LifecycleProbe / FollowCameraExample / ProjectilePoolExample / AssetBundleUpdateExample.
+Inspector-assigned fields produce expected standalone CS0649 warnings.
+The project now contains Entities 1.0.16 and a verified EcsFlowDemo. The text Baking sample and NGO 1.8.1 sample remain separate extensions; their specific configuration and live execution were not tested by the original four-example compilation check.
+Remote HTTPS and cross-machine multiplayer were not tested. New flow labs do verify real local TCP endpoints and local HTTP AssetBundle download; see LabReports for current results.

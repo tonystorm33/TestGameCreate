@@ -1,0 +1,1 @@
+PASS: all five KnowledgeTopic launch buttons open their real scene; Escape returns to PlayScene for every scene.

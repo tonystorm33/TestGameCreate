@@ -1,0 +1,10 @@
+ManifestFileVersion: 0
+CRC: 4179322521
+AssetBundleManifest:
+  AssetBundleInfos:
+    Info_0:
+      Name: learning_v1
+      Dependencies: {}
+    Info_1:
+      Name: learning_v2
+      Dependencies: {}

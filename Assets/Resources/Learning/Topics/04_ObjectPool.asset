@@ -1,0 +1,98 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: efa98c10073a4f8eb7da8d9c0d5ea911, type: 3}
+  m_Name: 04_ObjectPool
+  m_EditorClassIdentifier:
+  id: pool
+  order: 40
+  title: "对象池"
+  category: "性能"
+  summary: "让小球休息一下再上场，体验取出、回收与复用。"
+  badge: POOL
+  accent: {r: 0.88, g: 0.56, b: 0.3, a: 1}
+  presentation: 1
+  note: "这是 UI 元素池实验，最多同时使用 8 个对象。实际 GameObject 池可采用 UnityEngine.Pool.ObjectPool<T>，并配置创建、取出、回收、销毁回调。"
+  learningGoals: "判断何时需要池化；理解 Get／Release／Destroy 和容量；重置所有复用状态；能实现可运行的子弹池并测量分配变化。"
+  prerequisites: "生命周期、Rigidbody、集合、回调、基本 Profiler。代码使用 Unity 2022.3 内置 UnityEngine.Pool.ObjectPool<T>。"
+  references: "Unity 2022.3：ObjectPool<T>、Get、Release、Clear、CountActive／CountInactive。\nhttps://docs.unity3d.com/2022.3/Documentation/ScriptReference/Pool.ObjectPool_1.html"
+  demonstrationScene: ObjectPoolDemo
+  steps:
+  - title: "使用场景与成本"
+    explanation: "对象池把频繁创建／销毁变成取出／回收。它可减少实例化、销毁与部分分配成本，但会常驻更多内存，并带来状态重置和资源管理复杂度。"
+    code: ""
+    usage: "子弹、飘字、命中特效、滚动列表条目、反复打开的窗口。极少使用或体积很大的对象不一定适合长期池化。"
+    pitfalls: "池化不代表零 GC；对象内部的字符串、列表扩容、事件、材质实例仍可能分配。"
+    exercise: "先观察当前互动小球实验，再说明“创建次数不变，复用次数增加”代表什么。"
+    exampleCode: {fileID: 0}
+  - title: "Get：获取对象"
+    explanation: "有空闲对象时直接返回；没有空闲对象时调用创建回调。取出回调用于开启对象并准备活跃状态。\n在真正开始逻辑前，应完成这次使用所需的初始化。"
+    code: "var item = pool.Get();\nitem.transform.position = spawnPosition;\nitem.Initialize(config);"
+    usage: "角色出池后重置位置、生命值、目标、倒计时与动画；特效出池后重置播放状态。"
+    pitfalls: "OnEnable 可能在外部 Initialize 前执行。依赖参数的启动逻辑应放到显式初始化之后。"
+    exercise: "列出一颗子弹取出时要重置的至少六个字段。"
+    exampleCode: {fileID: 0}
+  - title: "Release：回收对象"
+    explanation: "回收时停止持续逻辑，移除活跃集合，清空运动或订阅状态，关闭对象，再放回空闲区。\n同一个对象必须只回收一次；多种结束路径需要统一进入回收函数。"
+    code: "if (!active.Contains(item)) return;\nactive.Remove(item);\npool.Release(item);"
+    usage: "子弹超时、命中后回收；飘字播放完成后回收；窗口关闭后回收。"
+    pitfalls: "命中与超时可能在邻近时机重复请求回收。collectionCheck 有助于开发期检测，但业务逻辑仍需保证一次性。"
+    exercise: "让同一个对象连续尝试回收两次，确认不会重复入池或出现活跃数负数。"
+    exampleCode: {fileID: 0}
+  - title: "四个回调与所有权"
+    explanation: "createFunc 创建；actionOnGet 激活；actionOnRelease 清理并关闭；actionOnDestroy 在池无法继续保存对象等场景释放最终资源。\n谁创建池，谁负责池的关闭与未回收对象管理。"
+    code: "pool = new ObjectPool<Item>(Create, OnGet, OnRelease, OnDestroy,\n    collectionCheck: true, defaultCapacity: 16, maxSize: 32);"
+    usage: "一个场景发射器拥有子弹池；场景卸载时统一清理，子弹通过拥有者请求回收。"
+    pitfalls: "ObjectPool 不是线程安全的，GameObject 操作放在主线程。池 Clear 主要清理池中空闲对象，不能替代所有已取出对象的回收。"
+    exercise: "画出池拥有者、活跃子弹、空闲子弹的引用关系，指出卸载场景时谁清理谁。"
+    exampleCode: {fileID: 0}
+  - title: "容量与预热"
+    explanation: "defaultCapacity 是内部容器初始容量，不等于预创建对象数；maxSize 控制可保留的空闲数量，不是所有活跃对象的上限。\n需要限制同时发射数时，要额外限制 CountActive 或业务活跃集合。"
+    code: "var warming = new List<Item>();\nfor (int i = 0; i < 20; i++) warming.Add(pool.Get());\nforeach (var item in warming) pool.Release(item);"
+    usage: "弹幕上限、特效预算、可见 UI 数量。预热可把创建成本移到可接受的加载阶段。"
+    pitfalls: "连续 Get 后立即 Release 可能一直复用同一对象，不能保证预热 N 个独立对象。预热时要避免激活副作用。"
+    exercise: "说明为何 maxSize=32 时仍可能有 100 个活跃对象，以及如何限制它们。"
+    exampleCode: {fileID: 0}
+  - title: "状态重置清单"
+    explanation: "位置／旋转、速度／角速度、生命值、目标引用、碰撞标记、动画、粒子、音效、Trail、计时器、事件订阅与业务回调都需要考虑。\n不同类型对象应有各自的 ResetForUse 与 ResetForPool。"
+    code: "body.velocity = Vector3.zero;\nbody.angularVelocity = Vector3.zero;\ntarget = null;\ntrail.Clear();\n// 片段：字段由具体对象定义。"
+    usage: "子弹之前命中过目标，下次复用必须清除命中标记；拖尾对象复用时清空旧轨迹。"
+    pitfalls: "简单 SetActive(false) 不会自动清除普通字段和外部事件监听。"
+    exercise: "让同一子弹连续复用 50 次，确认速度、目标、命中次数和拖尾没有继承旧状态。"
+    exampleCode: {fileID: 0}
+  - title: "完整实例：子弹池"
+    explanation: "按住 Space 连续发射自动创建的球形子弹。两秒超时或触发碰撞后回收；再次发射复用已有实例。\n示例同时限制活跃数量与池中空闲数量，并在禁用发射器时回收活跃对象。"
+    code: ""
+    usage: "复制为 ProjectilePoolExample.cs，挂到空对象。相机朝向发射器前方，输入设置支持 Input Manager 或 Both。\n可创建带 Collider 的目标；球形子弹具有 Rigidbody 与 Trigger Collider。"
+    pitfalls: "这个示例没有伤害、阵营过滤和忽略发射器碰撞逻辑；发射器放在空对象上便于观察。速度使用 Unity 2022.3 Rigidbody.velocity API。"
+    exercise: "验收：持续发射后 Hierarchy 中对象数量趋于稳定；重新启用发射器后可继续发射；超时和碰撞都能回收。"
+    exampleCode: {fileID: 4900000, guid: da88350b47784e9c9b98173000000003, type: 3}
+  - title: "UI、特效与其他池"
+    explanation: "UI 池需要重置数据绑定、按钮事件和滚动位置；粒子池需清理发射状态并正确判断结束；音效池需要重置音量和播放参数。\n同一种池化接口可以有不同的具体清理动作。"
+    code: ""
+    usage: "任务列表条目、伤害飘字、爆炸特效、一次性音源。"
+    pitfalls: "反复给同一个 Button 加监听但不解绑会出现多次响应。不同特效时长不应硬编码成统一回收时间。"
+    exercise: "将当前小球实验改为飘字条目，复用编号不变但文本和位置更新。"
+    exampleCode: {fileID: 0}
+  - title: "性能测量与误区"
+    explanation: "用 Profiler 比较相同发射速率下的 Instantiate／Destroy 和池方案。记录尖峰、GC Alloc、CPU 时间与常驻对象数。\n同时观察池化对象内部逻辑，因为瓶颈可能在碰撞、渲染或过多 Update。"
+    code: ""
+    usage: "在目标设备开发构建上运行，先暖机，再采集同样时长的数据。"
+    pitfalls: "对象数量稳定不等于内存完全稳定；材质实例与外部引用也可能造成泄漏。不要只看平均 FPS。"
+    exercise: "记录两种方案各 30 秒数据，解释池方案节省了什么、增加了什么。"
+    exampleCode: {fileID: 0}
+  - title: "综合练习：三个池"
+    explanation: "分别制作子弹、爆炸、飘字三个池。让子弹命中触发特效和飘字，各自按完成条件回收。\n为每个池增加累计创建、活跃、空闲、峰值活跃和拒绝生成次数。"
+    code: ""
+    usage: "射击与战斗反馈系统的完整小实验。"
+    pitfalls: "多个池之间不要互相持有已经失效的对象引用；回收回调应解绑而不是继续启动新的任务。"
+    exercise: "验收：重复战斗 5 分钟数量不持续增长；退出场景后没有旧回调；重复回收被可靠阻止。"
+    exampleCode: {fileID: 0}

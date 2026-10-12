@@ -1,0 +1,1 @@
+PASS: PlayScene scene loading, UI construction, search, playback, return, pool interaction, disable/re-enable.

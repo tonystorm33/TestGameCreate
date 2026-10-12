@@ -1,0 +1,12 @@
+Unity 2022.3.62f3c1
+PASS  defaultCapacity 不等于预创建  
+PASS  Get 创建并激活  
+PASS  实际场景对象运动  
+PASS  Release 失活并入池  
+PASS  再次 Get 复用同一对象  
+PASS  复用重置速度和寿命  
+PASS  重复回收不会重复入池  
+PASS  额外控制活跃数量上限  
+PASS  超时回收与空闲容量溢出销毁  
+PASS  先回收活跃对象，再清理池  
+PASS  清理后可重新开始  

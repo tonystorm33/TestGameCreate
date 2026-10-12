@@ -1,0 +1,26 @@
+1. CreateActor
+先让对象 inactive，再 AddComponent 并设置日志回调。Awake 和 OnEnable 不由演示控制器手工调用，而由对象激活时的引擎调用。
+
+2. 激活
+SetActive(true) 触发首次 Awake 和 OnEnable。OnEnable 订阅 Pulse 并启动 Heartbeat。
+
+3. 首帧
+Start 在第一次 Update 之前执行。Update 真正旋转 Transform。心跳协程每 0.2 秒累加计数。
+
+4. 事件
+控制器调用 Pulse 委托。Receive 是否响应取决于组件是否订阅，而不是 UI 假定它应响应。
+
+5. 禁用组件
+设置 actor.enabled=false 后，OnDisable 解除 Receive、显式 StopCoroutine。仅禁用组件并不能依赖引擎自动停止它的协程。
+
+6. 再次启用
+OnEnable 再执行，Awake 和 Start 不再执行。事件应只有一个订阅，心跳应只有一条链。
+
+7. 销毁与退出
+Destroy 的最终回调在引擎处理销毁时发生；测试让出一帧等待，而不是立即断言。退出时先清掉 Report、失活对象再销毁。
+
+8. 测试如何证明
+回调次数、实际 Update 数、心跳、事件处理数均由 LabLifeActor 记录。禁用一段真实时间后，计数不变；重新启用后只增一次订阅；销毁触发 OnDisable / OnDestroy。
+
+边界
+实验观察活跃生命周期；不是完整 PlayerLoop，也没有展示 FixedUpdate、物理或跨对象顺序。

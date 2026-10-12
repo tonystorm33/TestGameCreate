@@ -1,0 +1,11 @@
+Unity 2022.3.62f3c1
+PASS  不活跃对象延迟初始化  
+PASS  引擎触发首次生命周期  
+PASS  Update 真正执行  
+PASS  启用时事件有一个监听  
+PASS  禁用停止 Update 与显式停止协程  
+PASS  禁用时事件已解绑  
+PASS  重新启用不重复 Awake / Start  
+PASS  重新启用无重复订阅  
+PASS  销毁触发禁用和最终清理  
+PASS  重新创建实例计数独立  

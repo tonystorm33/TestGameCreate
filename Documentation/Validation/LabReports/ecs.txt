@@ -1,0 +1,9 @@
+Unity 2022.3.62f3c1
+PASS  创建 World、实体与组件  
+PASS  System 正确积分 speed × dt  
+PASS  冻结标签排除查询  
+PASS  移除冻结标签后继续移动  
+PASS  表现桥接与组件数据一致  
+PASS  销毁实体后句柄失效  
+PASS  退出释放自有 World  
+PASS  重复进入无残留实体  

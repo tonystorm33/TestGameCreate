@@ -1,0 +1,45 @@
+// Entities 1.0 API 拓展示例；本工程已安装 Entities 1.0.16。
+// 实际运行实验见 EcsFlowDemo；下面的 Baking 示例仍以文本供阅读。
+// 作者组件部分保存为 MoveAuthoring.cs，系统部分可保存为 MoveSystem.cs。
+// 另建实验工程，安装 Entities 1.0.x 及其依赖。
+// 如需渲染 Cube，安装 Entities Graphics 1.0.x，使用 URP Forward+ 或匹配 HDRP。
+// 创建 SubScene，将挂有 MoveAuthoring 的 Cube 放入 SubScene。
+using Unity.Entities;
+using Unity.Transforms;
+using UnityEngine;
+
+public struct MoveSpeed : IComponentData
+{
+    public float Value;
+}
+
+public sealed class MoveAuthoring : MonoBehaviour
+{
+    public float speed = 2f;
+    sealed class Baker : Baker<MoveAuthoring>
+    {
+        public override void Bake(MoveAuthoring authoring)
+        {
+            Entity entity = GetEntity(TransformUsageFlags.Dynamic);
+            AddComponent(entity, new MoveSpeed { Value = authoring.speed });
+        }
+    }
+}
+
+public partial struct MoveSystem : ISystem
+{
+    public void OnCreate(ref SystemState state)
+    {
+        state.RequireForUpdate<MoveSpeed>();
+    }
+    public void OnUpdate(ref SystemState state)
+    {
+        float dt = SystemAPI.Time.DeltaTime;
+        foreach (var (transform, speed) in
+            SystemAPI.Query<RefRW<LocalTransform>, RefRO<MoveSpeed>>())
+        {
+            transform.ValueRW.Position.x += speed.ValueRO.Value * dt;
+        }
+    }
+    public void OnDestroy(ref SystemState state) { }
+}

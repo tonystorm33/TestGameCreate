@@ -1,0 +1,105 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: efa98c10073a4f8eb7da8d9c0d5ea911, type: 3}
+  m_Name: 03_Network
+  m_EditorClassIdentifier:
+  id: network
+  order: 30
+  title: "网络同步"
+  category: "架构"
+  summary: "让两端看到同一个世界，认识输入、权威状态与插值。"
+  badge: NET
+  accent: {r: 0.32, g: 0.59, b: 0.83, a: 1}
+  presentation: 0
+  demonstrationScene: NetworkSyncDemo
+  note: "演示采用客户端／服务器模型，仅说明概念，没有真实连接、RPC 或预测实现。具体同步策略取决于游戏类型和网络框架。"
+  learningGoals: "分清本地对象、网络身份、所有权和权威；区分状态同步与事件 RPC；理解 tick、延迟、插值与预测；能搭建双端状态同步案例。"
+  prerequisites: "生命周期、C# 事件、客户端／服务器基础。本实例固定面向 Netcode for GameObjects 1.8.1，与 Entities Netcode 是不同方案。"
+  references: "NGO 1.8.1：NetworkVariable、ServerRpc、NetworkObject、NetworkTransform。\nhttps://mp-docs.dl.it.unity3d.com/netcode/1.8.1/basics/networkvariable/"
+  steps:
+  - title: "使用场景与同步模型"
+    explanation: "多人游戏需要让不同进程对共享世界保持合理一致。每端拥有自己的内存，普通 C# 字段变化不会自动传到另一端。\n常见方案包括状态同步、帧同步等；本课程围绕客户端／服务器的权威状态同步。"
+    code: ""
+    usage: "合作游戏、共享房间、多人交互、服务器判定的战斗。排行榜请求与多人实时同步有不同的频率和一致性需求。"
+    pitfalls: "不能把发送一个 Transform 当作完整网络系统；连接、身份、权限、时间与断线恢复都需要设计。"
+    exercise: "写出门开关同步和玩家移动同步各需要哪些数据，哪些只是本地表现。"
+    exampleCode: {fileID: 0}
+  - title: "网络身份与对象生成"
+    explanation: "NetworkObject 提供网络对象标识；NetworkBehaviour 在其上实现网络行为。实例化一个本地对象并不意味着所有客户端都生成它。\n动态生成通常由有权限的一端进行网络 Spawn。"
+    code: "// NGO 环境中的片段，服务器执行\nvar obj = Instantiate(prefab);\nobj.GetComponent<NetworkObject>().Spawn();"
+    usage: "玩家预制体、掉落物、可交互门、敌人。配置网络预制体，并明确生成和销毁的权威方。"
+    pitfalls: "普通 Destroy 与网络 Despawn 的职责要分清。场景内对象与动态对象的 OnNetworkSpawn／Start 顺序不同。"
+    exercise: "解释为什么每个客户端自行 Instantiate 同一门模型不会自动拥有统一网络身份。"
+    exampleCode: {fileID: 0}
+  - title: "所有权与权威"
+    explanation: "所有权常用于表示哪个客户端控制或拥有对象；权威决定谁能产生被接受的状态。两者不是同一个概念。\n本课程选择服务器写权威状态、客户端提交操作请求。"
+    code: ""
+    usage: "生命值、背包、奖励等由服务器验证并修改；客户端可显示自己的输入效果。"
+    pitfalls: "客户端持有对象所有权也不代表它能任意写服务器权限的 NetworkVariable。"
+    exercise: "列出玩家角色的位置、生命值、动画、相机分别由谁产生、校验和显示。"
+    exampleCode: {fileID: 0}
+  - title: "持续状态：NetworkVariable"
+    explanation: "NetworkVariable 用于保存当前状态，能将当前值同步给晚加入的客户端。\n在 OnNetworkSpawn 订阅变化并立即应用已有值，在 OnNetworkDespawn 解绑；只等变化事件可能漏掉初始显示。"
+    code: "public override void OnNetworkSpawn()\n{\n    state.OnValueChanged += OnChanged;\n    Apply(state.Value);\n}\npublic override void OnNetworkDespawn()\n{\n    state.OnValueChanged -= OnChanged;\n}"
+    usage: "门是否打开、准备状态、得分、当前生命值。设置读写权限并仅在网络对象有效生成期间操作运行状态。"
+    pitfalls: "不要在对象尚未 Spawn 时随意改运行值；Start 不能替代所有网络生命周期阶段。"
+    exercise: "让第二个客户端在开关已打开后加入，确认它立即显示正确状态。"
+    exampleCode: {fileID: 0}
+  - title: "瞬时事件：RPC"
+    explanation: "RPC 表达一次网络请求或通知，如“请求打开门”“播放一次效果”。它不自动保存一个可供晚加入客户端恢复的长期状态。\n请求与最终状态可以配合：客户端发 RPC，服务器校验后写 NetworkVariable。"
+    code: "[ServerRpc(RequireOwnership = false)]\nvoid RequestServerRpc(ServerRpcParams rpc = default)\n{\n    ulong sender = rpc.Receive.SenderClientId;\n    // 根据 sender 校验请求后更新状态。\n}"
+    usage: "交互请求、一次性动画触发、技能指令。对持续状态使用可恢复的状态容器。"
+    pitfalls: "RequireOwnership=false 只放宽调用资格，不替代权限校验。不能相信客户端直接提交的伤害或奖励。"
+    exercise: "比较“只广播开门 RPC”和“同步 bool 状态”在晚加入情况下的差别。"
+    exampleCode: {fileID: 0}
+  - title: "Tick、快照与带宽"
+    explanation: "网络 tick 是网络逻辑节奏，不一定等于渲染帧或 FixedUpdate。快照可以按频率发送，并结合序号与时间戳处理乱序。\n带宽粗估需要包含对象数、每次发送字节、频率、玩家数与协议开销。"
+    code: "粗估：20 对象 × 每对象 24 字节 × 每秒 10 次 = 4800 字节/秒\n// 仅是单个接收端的负载估计，未计算头部与重传。"
+    usage: "大量移动对象需要压缩、变化检测和兴趣管理；只同步玩家真正需要知道的内容。"
+    pitfalls: "不要无测量地在每帧为所有对象发送所有数据；可靠传输也会受到重传和队头阻塞影响。"
+    exercise: "估算 100 个对象、20Hz 位置快照的每客户端负载，再讨论兴趣管理如何减少它。"
+    exampleCode: {fileID: 0}
+  - title: "插值：让远端显示平滑"
+    explanation: "客户端缓冲若干权威快照，再按服务器时间轴显示中间位置。插值减少抖动，但增加显示延迟。\n它适合远端对象的表现层；碰撞和命中判定仍需明确权威与时间策略。"
+    code: "// 概念伪代码，不含网络时钟和缓冲实现\nfloat t = Mathf.InverseLerp(previousTime, nextTime, renderTime);\nvisual.position = Vector3.Lerp(previousPosition, nextPosition, t);"
+    usage: "远端玩家、移动平台和车辆的视觉平滑。先正确同步，再添加插值。"
+    pitfalls: "收到快照时仅 Lerp 当前值不是完整的时间缓冲插值；无新快照时还需处理外推限制或保持状态。"
+    exercise: "模拟不等间隔快照，比较直接赋值与时间轴插值的抖动。"
+    exampleCode: {fileID: 0}
+  - title: "预测、校正与回滚"
+    explanation: "本地预测先响应输入，服务器确认后校正；完整预测可能还需保存输入序列、权威状态和重放逻辑。\n回滚可以指重新模拟状态，也可以指服务器为命中判定回看历史，必须明确具体含义。"
+    code: ""
+    usage: "高响应要求的玩家移动、动作游戏。门开关等低频交互可先等待服务器结果。"
+    pitfalls: "本课程开关示例没有预测／回滚实现；不能把视觉插值称为预测。"
+    exercise: "画出输入序号 10 到达服务器、服务器状态回传、本地重放 11 和 12 的流程。"
+    exampleCode: {fileID: 0}
+  - title: "完整实例：服务器权威开关"
+    explanation: "每端显示一个 Cube。按钮只提交 Toggle 请求；服务器确认发送者连接并限频，然后修改 bool 状态；各端通过变化事件刷新颜色。\n该示例突出“输入请求 → 验证 → 权威状态 → 显示”。"
+    code: ""
+    usage: "独立实验工程安装 NGO 1.8.1 与 Unity Transport。场景建立 NetworkManager、UnityTransport；Cube 添加 NetworkObject 和脚本，拖入 Renderer。\n一个构建运行 Host，编辑器运行 Client，连接相同地址端口；启动按钮绑定 BeginHost／BeginClient，交互按钮绑定 RequestToggle。使用内置 Standard 材质。"
+    pitfalls: "文本示例未安装到主工程，也未做真实联网实机验证。示例限频为全局限频，正式项目应按发送者、距离和权限完善。"
+    exercise: "验收：两端颜色一致；快速点击被限频；晚加入客户端显示当前状态；断开／重连不留下旧订阅。"
+    exampleCode: {fileID: 4900000, guid: da88350b47784e9c9b98173000000005, type: 3}
+  - title: "断线、重连与验证"
+    explanation: "区分连接建立、身份认证、角色生成、状态同步与可开始交互。断线时应停止使用失效对象并更新 UI。\n重连需要恢复业务状态，不只是再次调用连接接口。"
+    code: ""
+    usage: "房间准备界面、重新连接提示、状态恢复与超时退出。"
+    pitfalls: "Host 同时包含服务器和本地客户端，单测 Host 不能覆盖独立 Client 的行为。"
+    exercise: "至少测试 Host+Client、第二个晚加入 Client、断线和重连；再增加延迟、抖动与丢包条件。"
+    exampleCode: {fileID: 0}
+  - title: "综合练习：同步宝箱"
+    explanation: "把开关实例扩展为宝箱：服务器保存是否已打开，检验玩家距离和请求频率，奖励只发一次。\n客户端播放表现动画，但动画不能自己决定奖励。"
+    code: ""
+    usage: "合作游戏的共享交互和服务器判定奖励。"
+    pitfalls: "重发请求、双玩家同时点击、晚加入和断线重连都可能暴露重复奖励问题。"
+    exercise: "验收：无论同时点击多少次，奖励只产生一次；晚加入看到已打开；不在范围内的请求被拒绝。"
+    exampleCode: {fileID: 0}

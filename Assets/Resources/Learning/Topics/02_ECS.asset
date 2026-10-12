@@ -1,0 +1,105 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: efa98c10073a4f8eb7da8d9c0d5ea911, type: 3}
+  m_Name: 02_ECS
+  m_EditorClassIdentifier:
+  id: ecs
+  order: 20
+  title: "ECS 架构"
+  category: "架构"
+  summary: "把身份、数据和行为拆开，理解面向数据的组织方式。"
+  badge: ECS
+  accent: {r: 0.32, g: 0.66, b: 0.64, a: 1}
+  presentation: 0
+  demonstrationScene: EcsFlowDemo
+  note: "工程已安装 Entities 1.0.16；独立流程实验室实际运行自有 World、Entity、组件查询与系统。正文 Baking 示例属于拓展，渲染它还需要匹配的 Entities Graphics 与 SRP。"
+  learningGoals: "理解身份／数据／行为分离；能描述查询、World、Archetype 与 Chunk；知道 Baking、结构变化和 Job 的作用；能规划一个批量移动实例。"
+  prerequisites: "C# struct、值类型与引用类型；基本 MonoBehaviour；性能测量。代码示例面向 Entities 1.0.x，不使用早期 ConvertToEntity API。"
+  references: "Entities 1.0：ISystem、Baker、SystemAPI.Query、EntityCommandBuffer、组件与 Archetype。\nhttps://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/index.html"
+  steps:
+  - title: "适用场景与选择"
+    explanation: "ECS 将 Entity 的身份、Component 的数据和 System 的行为分开。收益来自数据组织与批量执行，不是把类改成 struct 就自动更快。\n传统 GameObject 仍适合大量编辑器交互、UI 和已有插件；两者可以协同。"
+    code: ""
+    usage: "大量同类单位、弹幕、群集、模拟、批量状态处理。少量角色或开发规模较小的玩法可以先用 MonoBehaviour。"
+    pitfalls: "迁移成本、团队经验、表现层依赖都需要计入。应先测量真正瓶颈。"
+    exercise: "列出一个项目中适合 ECS 的系统与适合 GameObject 的系统，并说明原因。"
+    exampleCode: {fileID: 0}
+  - title: "Entity：身份"
+    explanation: "Entity 是某个 World 中的实体句柄，带有索引与版本信息。实体销毁后，旧句柄不能继续当作有效实体使用。\n数据归属在组件上，业务行为主要由系统组织。"
+    code: "// Entities 环境中的片段\nEntity enemy = entityManager.CreateEntity();\nbool alive = entityManager.Exists(enemy);"
+    usage: "把一个敌人、子弹、路径点等逻辑对象抽象为身份；用组件组合表达它具有什么能力。"
+    pitfalls: "不要把来自不同 World 的 Entity 混用；实体句柄不是可永久跨存档使用的业务 ID。"
+    exercise: "设计 EnemyId 业务组件，用于存档关联，而不是直接序列化 Entity 的索引。"
+    exampleCode: {fileID: 0}
+  - title: "Component：数据"
+    explanation: "普通 IComponentData 值类型组件应围绕要被一起访问的数据设计。如 MoveSpeed、Health、Team。\n组件粒度太大容易让无关系统读取额外数据；太碎也会增加组合和管理成本。"
+    code: "public struct Health : IComponentData { public float Value; }\npublic struct MoveSpeed : IComponentData { public float Value; }"
+    usage: "移动系统需要位置与速度；伤害系统需要生命值与防御；阵营筛选需要 Team。"
+    pitfalls: "并非所有 ECS 组件都天然无托管分配。Managed Component、Shared Component、DynamicBuffer 有各自用途与限制。"
+    exercise: "为一个可移动、可受伤的敌人画出组件组合；说明每个系统读写什么。"
+    exampleCode: {fileID: 0}
+  - title: "System 与查询"
+    explanation: "System 通过查询选择同时具备目标组件的实体，再执行批量行为。查询读写声明还会影响依赖分析。\nISystem 适合非托管系统逻辑；SystemBase 也有合适的使用场景。"
+    code: "foreach (var (position, speed) in\n    SystemAPI.Query<RefRW<LocalTransform>, RefRO<MoveSpeed>>())\n{\n    position.ValueRW.Position.x += speed.ValueRO.Value * dt;\n}"
+    usage: "对所有拥有 LocalTransform 与 MoveSpeed 的实体执行移动；对 Health<=0 的实体安排死亡处理。"
+    pitfalls: "读写权限要准确；不必要的写权限可能增加系统依赖。这个代码片段必须位于合适的系统上下文中。"
+    exercise: "设计一条查询：移动系统排除 Frozen 标签，同时只读取速度、写入位置。"
+    exampleCode: {fileID: 0}
+  - title: "World、Archetype 与 Chunk"
+    explanation: "World 管理一组实体与系统。Archetype 表示某种组件类型组合；同组合的数据按 Chunk 存放。\n连续布局能改善批量访问，但实体跨组合、共享组件和动态缓冲会影响实际布局。"
+    code: ""
+    usage: "先把“一批同类对象的相同行为”表达成批量查询，再结合 Profiler 判断数据布局的价值。"
+    pitfalls: "不能假定所有实体始终处于一个 Chunk，也不能把 ECS 与自动多线程混为一谈。"
+    exercise: "解释：向敌人添加 DeadTag 为什么可能改变它所属的 Archetype？"
+    exampleCode: {fileID: 0}
+  - title: "Baking：作者数据到运行数据"
+    explanation: "Baking 将编辑器中的作者数据转换为运行时实体数据。Baker 读取 MonoBehaviour 配置，创建实体并添加组件。\nSubScene 是典型工作流；表现为可渲染网格时，还需要相应渲染支持。"
+    code: "public override void Bake(MoveAuthoring authoring)\n{\n    Entity e = GetEntity(TransformUsageFlags.Dynamic);\n    AddComponent(e, new MoveSpeed { Value = authoring.speed });\n}"
+    usage: "设计师用 Inspector 调 speed；Baker 将它写入 MoveSpeed 组件；运行时系统只处理运行数据。"
+    pitfalls: "不同 Entities 大版本 API 差异明显。示例使用 1.0 的 Baking 流程，不能套用旧版转换教程。"
+    exercise: "改变作者组件 speed，检查烘焙后的实体组件数值是否同步变化。"
+    exampleCode: {fileID: 0}
+  - title: "结构变化与 ECB"
+    explanation: "创建／销毁实体、添加／移除组件等结构变化可能移动数据并带来同步成本。\nEntityCommandBuffer 先记录操作，在合适阶段集中回放。它能组织变更时机，但不消除结构变化本身的成本。"
+    code: "// 示意，真实项目还要设置 ECB 的创建与回放阶段\nvar ecb = new EntityCommandBuffer(Unity.Collections.Allocator.Temp);\necb.DestroyEntity(deadEntity);\necb.Playback(entityManager);\necb.Dispose();"
+    usage: "大量子弹生成、死亡实体销毁、批量添加状态标签。"
+    pitfalls: "不要在遍历查询时随意立即改变其结构；Job 内需使用相应 ECB 并行接口与依赖管理。"
+    exercise: "比较“每帧添加／移除状态组件”与“使用可启用组件切换状态”的设计成本。"
+    exampleCode: {fileID: 0}
+  - title: "Jobs 与 Burst"
+    explanation: "Jobs 可以把独立的数据工作安排到工作线程，Burst 可以编译适合的代码路径。\n需要明确读写依赖和分配器生命周期，避免主线程提前访问仍由 Job 使用的数据。"
+    code: "// 后续扩展方向：IJobEntity + ScheduleParallel\n// 声明只读／可写数据，正确传递并完成依赖。"
+    usage: "成千上万个单位的独立移动或计算。先有正确的单线程系统，再测量并引入并行。"
+    pitfalls: "调度并行不保证一定更快；小任务的调度开销可能超过收益。不能在 Job 中任意调用 GameObject API。"
+    exercise: "分别测量主线程循环与 Job 方案，在同等实体数和构建条件下比较时间。"
+    exampleCode: {fileID: 0}
+  - title: "完整实例：批量移动"
+    explanation: "完整示例由作者组件、MoveSpeed 数据组件和 MoveSystem 系统组成。系统逐帧更新所有匹配实体的 X 坐标。\n示例优先清晰表达数据流，没有提前引入 Job 或 Burst 优化。"
+    code: ""
+    usage: "在独立实验工程使用 Unity 2022.3 与 Entities 1.0.x；安装匹配的 Entities Graphics 1.0.x；该版本需要 SRP，URP 使用 Forward+，也可使用匹配的 HDRP，不支持内置渲染管线。\n创建 SubScene，将带 MoveAuthoring 的多个 Cube 放进去。作者类保存为 MoveAuthoring.cs，系统可拆成 MoveSystem.cs。"
+    pitfalls: "本工程已安装 Entities 1.0.16，实际演示见 EcsFlowDemo。此 Baking / Graphics 拓展示例仍以文本展示，渲染配置未由流程实验测试覆盖。"
+    exercise: "验收：不同 speed 的实体以不同速度沿 X 移动；没有 MoveSpeed 的实体不被系统更新。"
+    exampleCode: {fileID: 4900000, guid: da88350b47784e9c9b98173000000004, type: 3}
+  - title: "性能与排查"
+    explanation: "先明确目标设备、实体数量和性能预算。测量 CPU 主线程、Job 时间、同步点、结构变化与内存分配。\n编辑器、开发构建和正式构建的结果可能不同，应在可比较环境中测试。"
+    code: ""
+    usage: "示例扩展到 100、1000、10000 个实体，记录同一段移动逻辑的耗时。"
+    pitfalls: "System 未执行时检查 World、系统启用状态、RequireForUpdate 和查询匹配；实体不显示时检查 SubScene 与渲染烘焙。"
+    exercise: "为相同数量的 GameObject 与实体各写移动实验，记录数据，而不是仅凭帧率印象比较。"
+    exampleCode: {fileID: 0}
+  - title: "综合练习：群体移动"
+    explanation: "扩展实例：为实体增加方向、边界与速度数据；系统到达边界后改变方向；不同阵营使用不同配置。\n把移动、生命值和表现拆开，避免一个巨大的系统处理所有事情。"
+    code: ""
+    usage: "群体单位、简单鱼群或巡逻队演示。"
+    pitfalls: "如果只为少量个体构建复杂实体架构，学习价值可以很高，但工程收益需单独判断。"
+    exercise: "验收：系统不依赖逐个 MonoBehaviour.Update；冻结标签可暂停指定实体；所有原生容器按生命周期释放。"
+    exampleCode: {fileID: 0}

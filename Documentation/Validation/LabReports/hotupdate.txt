@@ -1,0 +1,11 @@
+Unity 2022.3.62f3c1
+PASS  读取真实构建清单  
+PASS  本机 HTTP 服务启动  
+PASS  HTTP 下载 V1 → CRC 校验 → 加载 → 提交  
+PASS  重复版本不重复下载  
+PASS  V2 实际 Prefab 替换 V1  
+PASS  HTTP 404 保留当前版本与实例  
+PASS  错误 CRC 不提交新版本  
+PASS  取消事务清理临时资源，保留已提交版本  
+PASS  退出释放 HTTP 与资源包  
+PASS  释放后可重新运行完整流程  

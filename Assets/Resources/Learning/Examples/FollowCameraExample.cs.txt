@@ -1,0 +1,19 @@
+// 保存为 FollowCameraExample.cs；挂载到相机并拖入 target。
+// 适用于非物理的简单跟随；Rigidbody 目标还需考虑插值。
+using UnityEngine;
+
+public sealed class FollowCameraExample : MonoBehaviour
+{
+    [SerializeField] Transform target;
+    [SerializeField] Vector3 offset = new Vector3(0, 3, -6);
+    [SerializeField] float sharpness = 8f;
+
+    void LateUpdate()
+    {
+        if (target == null) return;
+        float blend = 1f - Mathf.Exp(-sharpness * Time.deltaTime);
+        transform.position = Vector3.Lerp(
+            transform.position, target.position + offset, blend);
+        transform.LookAt(target);
+    }
+}

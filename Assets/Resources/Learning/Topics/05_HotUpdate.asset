@@ -1,0 +1,98 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: efa98c10073a4f8eb7da8d9c0d5ea911, type: 3}
+  m_Name: 05_HotUpdate
+  m_EditorClassIdentifier:
+  id: hotupdate
+  order: 50
+  title: "热更新"
+  category: "工程"
+  summary: "从版本检查到资源生效，理解更新流程与边界。"
+  badge: HOT
+  accent: {r: 0.81, g: 0.43, b: 0.58, a: 1}
+  presentation: 0
+  demonstrationScene: HotUpdateDemo
+  note: "本示例展示更新流程，不会下载文件或执行远程代码。资源更新和代码更新是不同能力；AssetBundle 不能直接提供新的编译脚本。"
+  learningGoals: "区分资源更新、配置更新与代码热更新；理解版本、清单、校验、依赖与切换；能演练单包下载加载；知道失败恢复和缓存边界。"
+  prerequisites: "协程、HTTP、JSON、资源加载、平台构建概念。实例为 AssetBundle 资源更新，不包含 C# 代码热更新。"
+  references: "Unity 2022.3：AssetBundles、UnityWebRequestAssetBundle、Hash128、Caching。\nhttps://docs.unity3d.com/2022.3/Documentation/Manual/AssetBundlesIntro.html\nhttps://docs.unity3d.com/2022.3/Documentation/ScriptReference/Networking.UnityWebRequestAssetBundle.GetAssetBundle.html"
+  steps:
+  - title: "使用场景与三种更新"
+    explanation: "资源更新替换纹理、音效、预制体等；配置更新替换已有客户端能够解释的数据；代码热更新改变执行逻辑，通常需要额外运行时方案。\n客户端必须已经具备解释新资源和配置的能力。"
+    code: ""
+    usage: "活动美术、关卡资源、数值表、语言包、可按现有规则组织的关卡。修改底层原生功能通常需要完整客户端发布。"
+    pitfalls: "AssetBundle 不能直接提供新的编译 C# 类；预制体上的脚本类型仍需要在客户端可用。"
+    exercise: "分别判断：换皮肤、修改掉落表、新增脚本类型、更新原生插件，属于哪种更新。"
+    exampleCode: {fileID: 0}
+  - title: "版本与兼容性"
+    explanation: "客户端版本、资源版本与配置协议版本是不同维度。版本检查先确认兼容关系，再计算差异。\n清单应表达资源名、版本、哈希、大小、平台、依赖和最低支持客户端版本。"
+    code: "{\n  \"schemaVersion\": 1,\n  \"minClientVersion\": \"1.0.0\",\n  \"platform\": \"StandaloneWindows64\",\n  \"bundle\": \"reward\",\n  \"hash\": \"由构建清单填写的32位哈希\",\n  \"crc\": 0,\n  \"bytes\": 123456\n}"
+    usage: "客户端请求远端清单，检查平台与协议；必要时提示完整客户端更新。"
+    pitfalls: "版本号不能简单按字符串比较，例如 1.10 和 1.2；示意清单中的占位值不能作为真实构建哈希。"
+    exercise: "设计客户端版本过旧、平台不匹配、配置字段未知时的处理路径。"
+    exampleCode: {fileID: 0}
+  - title: "构建与平台"
+    explanation: "AssetBundle 必须针对目标平台构建。资源名、依赖与哈希应从构建结果生成，不能靠手写猜测。\n把构建、上传、清单发布和回滚记录组成固定流程。"
+    code: "// Editor 文件中的构建片段\nvar manifest = BuildPipeline.BuildAssetBundles(outputPath,\n    BuildAssetBundleOptions.ChunkBasedCompression,\n    BuildTarget.StandaloneWindows64);\nHash128 hash = manifest.GetAssetBundleHash(\"reward\");\nBuildPipeline.GetCRCForAssetBundle(outputPath + \"/reward\", out uint crc);"
+    usage: "创建 Reward.prefab，设置其 AssetBundle 名称 reward；编辑器调用 BuildPipeline.BuildAssetBundles；取回 Manifest 中的 hash 和实际 CRC。"
+    pitfalls: "outputPath 目录必须先存在；Windows 的包不能直接当作 Android 包使用。依赖包需要一起构建和管理。"
+    exercise: "从构建结果记录文件大小、hash、CRC、平台和资源完整路径。"
+    exampleCode: {fileID: 0}
+  - title: "下载与校验"
+    explanation: "网络下载可能超时、失败或收到不完整内容，需要检查 UnityWebRequest.Result 和错误信息。\nHash128 可参与缓存版本识别；CRC 校验可检测数据损坏，但它们不等同于来源真实性验证。"
+    code: "using (var request = UnityWebRequestAssetBundle.GetAssetBundle(url, hash, crc))\n{\n    request.timeout = 30;\n    yield return request.SendWebRequest();\n    if (request.result != UnityWebRequest.Result.Success) yield break;\n}"
+    usage: "设置超时，避免重复请求；让 UI 展示下载进度与失败原因；生产系统使用可信发布与签名策略。"
+    pitfalls: "不能把 CRC 当作密码学签名；下载成功也不说明资源名存在或依赖完整。"
+    exercise: "测试错误 URL、超时和错误 CRC，确认不会直接替换当前可用内容。"
+    exampleCode: {fileID: 0}
+  - title: "缓存、依赖与内存"
+    explanation: "AssetBundle、加载出的资源和实例有不同生命周期。Unload(false) 卸载包数据而保留已加载资源；Unload(true) 会影响从包加载的资源。\n缓存版本和内存引用也要分别管理。"
+    code: "// 包生命周期与已加载资源引用需要分别设计\nbundle.Unload(false);\n// Resources.UnloadUnusedAssets 应在可接受的时机评估调用。"
+    usage: "复用已缓存版本减少流量；先加载依赖包，再加载主包；切换内容后释放不再使用的对象与资源。"
+    pitfalls: "不能把 Unload(false) 理解为所有旧资源已经完全释放；共享依赖仍被别的对象使用时，不要直接 Unload(true)。"
+    exercise: "画出包、Prefab 资源、实例、共享材质的引用关系，解释何时才可释放。"
+    exampleCode: {fileID: 0}
+  - title: "切换与失败回退"
+    explanation: "安全的切换应先让新版本资源可用，再改变业务使用的引用。出错时继续保留旧版本，记录失败并允许重试。\n多包更新需要事务式清单提交与完整依赖检查，不能下载一个就随意覆盖一个。"
+    code: "检查兼容性 → 下载暂存 → 校验依赖 → 试加载 → 切换引用 → 提交版本\n失败 → 保持当前版本 → 记录与重试"
+    usage: "先暂存新资源，验证加载，再切换活动界面；网络断开时继续显示本地已有内容。"
+    pitfalls: "下面的单包示例只保证实例切换前保留旧实例，不实现多包磁盘事务和生产级回滚。"
+    exercise: "在下载、校验、加载与切换各阶段制造失败，说明当前画面应如何变化。"
+    exampleCode: {fileID: 0}
+  - title: "完整实例：单包资源更新"
+    explanation: "脚本下载一个无外部包依赖的资源包，加载 Reward.prefab，创建新实例后再移除旧实例。\n使用真实构建哈希与 CRC 配合缓存和校验，重复点击下载按钮不会并发启动多个任务。"
+    code: ""
+    usage: "复制为 AssetBundleUpdateExample.cs，挂到空对象；填写 HTTPS 资源包 URL、完整资源名、Hash128 与 CRC；按钮绑定 DownloadAndApply。\n构建并托管两个可区分外观的版本，切换配置后重复测试。"
+    pitfalls: "这是待配置资源服务器和实际 AssetBundle 后运行的文本示例，本次未部署服务器或验证远程下载。只处理一个无外部包依赖的资源；不能用于任意多包生产更新。"
+    exercise: "验收：有效包替换外观；无效资源名不销毁旧实例；断网显示错误；同版本可复用缓存。"
+    exampleCode: {fileID: 4900000, guid: da88350b47784e9c9b98173000000006, type: 3}
+  - title: "Addressables 的角色"
+    explanation: "Addressables 提供地址、依赖和资源加载管理，并可使用远端内容与内容更新工作流。\n它能简化资源管理，但仍需要版本兼容、托管、容量、失败处理和正确释放句柄。"
+    code: ""
+    usage: "项目资源规模扩大、依赖复杂时，考虑按项目实际需求引入 Addressables。"
+    pitfalls: "不能把 Addressables 当作 C# 代码热更新运行时，也不能忘记 Addressables.Release 等生命周期管理。"
+    exercise: "比较手动管理 AssetBundle 与地址式加载的维护成本，列出仍需自己处理的更新问题。"
+    exampleCode: {fileID: 0}
+  - title: "代码热更新的边界"
+    explanation: "代码热更新方案需要考虑 AOT、类型保留、裁剪、泛型、反射、跨程序集调用和平台规则。\n具体方案必须按平台、Unity 版本、维护成本与发布要求评估。"
+    code: ""
+    usage: "确实需要改变逻辑而不能通过既有配置实现时，再单独设计和验证代码更新方案。"
+    pitfalls: "本工程没有接入任何代码热更新库；不要把下载 .cs 文件、加载 AssetBundle 或编辑器脚本重载称作运行时 C# 热更新。"
+    exercise: "给一个新增技能的需求，分析能否通过已有技能行为和数据组合实现。"
+    exampleCode: {fileID: 0}
+  - title: "综合练习：活动奖励更新"
+    explanation: "先发布红色奖励 Prefab，再更新为蓝色。清单保存平台、版本、文件大小、hash、CRC 与资源名。\n失败时保留红色；成功后切换蓝色；重启后根据已提交版本恢复。"
+    code: ""
+    usage: "活动资源与本地版本的完整教学实验。"
+    pitfalls: "落盘版本清单、磁盘空间和多包依赖不包含在单包脚本中，综合练习需要自行补全。"
+    exercise: "测试首次下载、缓存命中、断网、错误 CRC、错误资源名、低磁盘空间与旧客户端兼容性，记录验收结果。"
+    exampleCode: {fileID: 0}

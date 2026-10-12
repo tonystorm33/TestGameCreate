@@ -1,0 +1,19 @@
+{
+    "platform": "StandaloneWindows64",
+    "versions": [
+        {
+            "version": 1,
+            "file": "learning_v1",
+            "hash": "2aaf4035ee89f4bd289e1c81aa8c10e8",
+            "crc": 2614208929,
+            "asset": "Assets/LearningLabContent/Source/RewardV1.prefab"
+        },
+        {
+            "version": 2,
+            "file": "learning_v2",
+            "hash": "cda720d9030823316f4acdf0916181f9",
+            "crc": 2757782362,
+            "asset": "Assets/LearningLabContent/Source/RewardV2.prefab"
+        }
+    ]
+}

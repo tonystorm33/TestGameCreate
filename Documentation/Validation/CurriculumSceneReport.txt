@@ -1,0 +1,1 @@
+PASS: chapter keyword search / example view / attached reading-speed change / playback exit / pool theory + interaction / Escape / re-enable / rendered previews.

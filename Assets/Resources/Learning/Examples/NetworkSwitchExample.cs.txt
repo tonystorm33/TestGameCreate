@@ -1,0 +1,65 @@
+// 保存为 NetworkSwitchExample.cs；示例目标：NGO 1.8.1。
+// 本工程未安装 NGO；这是待配置网络环境后运行的文本示例。
+// 另建实验工程安装 NGO 1.8.1、Unity Transport；
+// 场景添加 NetworkManager/UnityTransport，Cube 添加 NetworkObject 和本脚本。
+// UI 按钮绑定 RequestToggle，Host 与 Client 均可请求。
+// Host / Client 按钮分别绑定下面的 BeginHost / BeginClient，连接同一地址端口。
+using Unity.Netcode;
+using UnityEngine;
+
+public sealed class NetworkSwitchExample : NetworkBehaviour
+{
+    readonly NetworkVariable<bool> state = new NetworkVariable<bool>(
+        false, NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+    [SerializeField] Renderer indicator;
+    float nextAllowedTime;
+
+    // Unity UI 的 OnClick 需要 void 方法，因此包装返回 bool 的启动方法。
+    public void BeginHost()
+    {
+        var manager = Unity.Netcode.NetworkManager.Singleton;
+        if (manager != null && !manager.IsListening) manager.StartHost();
+    }
+    public void BeginClient()
+    {
+        var manager = Unity.Netcode.NetworkManager.Singleton;
+        if (manager != null && !manager.IsListening) manager.StartClient();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        state.OnValueChanged += OnChanged;
+        Apply(state.Value); // 晚加入客户端也显示已有状态。
+    }
+    public override void OnNetworkDespawn()
+    {
+        state.OnValueChanged -= OnChanged;
+    }
+    public void RequestToggle()
+    {
+        if (!IsSpawned || !IsClient) return;
+        ToggleServerRpc();
+    }
+    [ServerRpc(RequireOwnership = false)]
+    void ToggleServerRpc(ServerRpcParams rpc = default)
+    {
+        // 简化演示：确认连接并对所有请求统一限频。
+        // 真实交互还需按发送者校验距离、角色状态和权限。
+        ulong sender = rpc.Receive.SenderClientId;
+        if (!NetworkManager.ConnectedClients.ContainsKey(sender)) return;
+        if (Time.unscaledTime < nextAllowedTime) return;
+        nextAllowedTime = Time.unscaledTime + 0.25f;
+        state.Value = !state.Value;
+    }
+    void OnChanged(bool previous, bool current) { Apply(current); }
+    void Apply(bool value)
+    {
+        if (indicator == null) return;
+        var block = new MaterialPropertyBlock();
+        indicator.GetPropertyBlock(block);
+        block.SetColor("_Color", value ? Color.green : Color.red);
+        indicator.SetPropertyBlock(block);
+        // 内置渲染管线 Standard 材质使用 _Color；URP 材质需 _BaseColor。
+    }
+}

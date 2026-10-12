@@ -1,0 +1,82 @@
+// 保存为 ProjectilePoolExample.cs；挂到空对象，按住 Space 发射。
+// Unity 2022.3 内置 ObjectPool<T>，无额外包。运行时自动创建球形子弹。
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.Pool;
+
+public sealed class ProjectilePoolExample : MonoBehaviour
+{
+    [SerializeField] float interval = 0.15f;
+    [SerializeField] float speed = 12f;
+    [SerializeField] int maxActive = 64;
+    readonly List<LearningBullet> active = new List<LearningBullet>();
+    ObjectPool<LearningBullet> pool;
+    float nextShot;
+
+    void Awake()
+    {
+        pool = new ObjectPool<LearningBullet>(
+            Create,
+            b => { b.gameObject.SetActive(true); active.Add(b); },
+            b => {
+                active.Remove(b);
+                b.Body.velocity = Vector3.zero;
+                b.Body.angularVelocity = Vector3.zero;
+                b.gameObject.SetActive(false);
+            },
+            b => Destroy(b.gameObject),
+            collectionCheck: true, defaultCapacity: 16, maxSize: 32);
+    }
+    LearningBullet Create()
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        go.name = "Pooled Bullet";
+        go.SetActive(false);
+        go.transform.SetParent(transform);
+        go.transform.localScale = Vector3.one * 0.2f;
+        go.GetComponent<Collider>().isTrigger = true;
+        var body = go.AddComponent<Rigidbody>();
+        body.useGravity = false;
+        var bullet = go.AddComponent<LearningBullet>();
+        bullet.Body = body;
+        bullet.Owner = this;
+        return bullet;
+    }
+    void Update()
+    {
+        if (!Input.GetKey(KeyCode.Space) || Time.time < nextShot) return;
+        nextShot = Time.time + Mathf.Max(0.01f, interval);
+        if (active.Count >= maxActive) return;
+        var bullet = pool.Get();
+        bullet.transform.position = transform.position + transform.forward;
+        bullet.transform.rotation = transform.rotation;
+        bullet.ExpiresAt = Time.time + 2f;
+        bullet.Body.velocity = transform.forward * speed;
+    }
+    public void Return(LearningBullet bullet)
+    {
+        if (pool == null || !active.Contains(bullet)) return;
+        pool.Release(bullet);
+    }
+    void OnDisable()
+    {
+        // Release 会修改 active，因此倒序遍历。
+        for (int i = active.Count - 1; i >= 0; i--) pool.Release(active[i]);
+    }
+    void OnDestroy() { pool?.Clear(); }
+}
+
+public sealed class LearningBullet : MonoBehaviour
+{
+    public Rigidbody Body { get; set; }
+    public ProjectilePoolExample Owner { get; set; }
+    public float ExpiresAt { get; set; }
+    void Update()
+    {
+        if (Time.time >= ExpiresAt && Owner != null) Owner.Return(this);
+    }
+    void OnTriggerEnter(Collider other)
+    {
+        if (Owner != null) Owner.Return(this);
+    }
+}

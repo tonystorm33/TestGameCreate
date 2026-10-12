@@ -1,0 +1,23 @@
+1. CreatePool
+createFunc 创建真实 Cube；OnGet 激活并加入 active；OnRelease 从 active 移除、清零速度和寿命、关闭对象；OnDestroy 最终销毁对象。
+
+2. 两种容量
+defaultCapacity=2 仅是容器初始容量，并没有创建两颗子弹。maxSize=2 限制空闲数量；活跃上限 4 由 Rent 的业务逻辑另行控制。
+
+3. Rent
+先检查活跃上限，Get 返回空闲或新对象，然后重置寿命=2、速度、位置和旋转。对象编号不变说明引用确实复用，而不是新建相似外观。
+
+4. Simulate
+Lab 统一推进实际 Transform 和 remaining。寿命到零走 Return。倒序遍历避免 Release 移除集合后跳过元素。
+
+5. Return
+只有仍在 active 中的对象可以回收。重复请求被忽略。Release 回调清理状态后，池决定保留还是因空闲超限调用销毁回调。
+
+6. DisposeLab
+先回收 active 全部对象，再 Clear 空闲池。Clear 不能替代已取出对象的回收。
+
+7. 测试如何证明
+ReferenceEquals 证明身份复用；断言速度与寿命重置；重复 Release 不改变空闲数量；4 个活跃对象超时后只保留 2 个空闲，另外 2 个实际被销毁。
+
+边界
+演示由一个 Lab 统一驱动运动，不使用 Rigidbody，也不是性能基准。物理子弹与伤害逻辑可按课程拓展示例加入。

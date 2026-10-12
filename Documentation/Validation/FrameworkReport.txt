@@ -1,0 +1,6 @@
+PASS: Unity 2022.3.62f3c1
+5 topic assets / stylesheet / theme imported
+step navigation / play-exit cleanup / re-entry reset
+all text presentations reach final step
+53 curriculum chapters / 6 full examples / example binding
+object identity reuse / capacity / reset / exit cleanup

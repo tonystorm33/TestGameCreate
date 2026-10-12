@@ -1,0 +1,96 @@
+// 保存为 AssetBundleUpdateExample.cs；Unity 2022.3，无额外包。
+// 挂到空对象；Inspector 填写已构建资源包的 HTTPS URL、资源名、
+// 构建清单给出的 32 位 Hash128 和 CRC，按钮绑定 DownloadAndApply。
+// 只演示单包资源切换；示例包必须无外部 AssetBundle 依赖。
+using System.Collections;
+using UnityEngine;
+using UnityEngine.Networking;
+
+public sealed class AssetBundleUpdateExample : MonoBehaviour
+{
+    [SerializeField] string bundleUrl;
+    [SerializeField] string assetName = "Assets/UpdateDemo/Reward.prefab";
+    [SerializeField] string contentHash;
+    [SerializeField] uint crc;
+    AssetBundle currentBundle;
+    GameObject currentInstance;
+    UnityWebRequest pending;
+    AssetBundle stagingBundle;
+    string appliedHash;
+    bool busy;
+
+    public void DownloadAndApply()
+    {
+        if (!busy && (currentInstance == null || appliedHash != contentHash)) StartCoroutine(ApplyUpdate());
+    }
+    IEnumerator ApplyUpdate()
+    {
+        if (string.IsNullOrEmpty(bundleUrl) || string.IsNullOrEmpty(assetName) ||
+            contentHash == null || contentHash.Length != 32 ||
+            !System.Uri.TryCreate(bundleUrl, System.UriKind.Absolute, out var uri) ||
+            uri.Scheme != System.Uri.UriSchemeHttps)
+        {
+            Debug.LogError("需要 HTTPS URL、完整资源名和 32 位内容哈希。");
+            yield break;
+        }
+        for (int i = 0; i < contentHash.Length; i++)
+            if (!System.Uri.IsHexDigit(contentHash[i]))
+            {
+                Debug.LogError("内容哈希必须是十六进制。");
+                yield break;
+            }
+        busy = true;
+        while (!Caching.ready) yield return null;
+        string requestedHash = contentHash;
+        Hash128 hash = Hash128.Parse(requestedHash);
+        using (var request = UnityWebRequestAssetBundle.GetAssetBundle(bundleUrl, hash, crc))
+        {
+            pending = request;
+            request.timeout = 30;
+            yield return request.SendWebRequest();
+            pending = null;
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError(request.error); busy = false; yield break;
+            }
+            var downloaded = DownloadHandlerAssetBundle.GetContent(request);
+            if (downloaded == null)
+            {
+                Debug.LogError("资源包读取失败。"); busy = false; yield break;
+            }
+            stagingBundle = downloaded;
+            var load = downloaded.LoadAssetAsync<GameObject>(assetName);
+            yield return load;
+            var prefab = load.asset as GameObject;
+            if (prefab == null)
+            {
+                downloaded.Unload(true);
+                stagingBundle = null;
+                Debug.LogError("资源不存在；保留旧实例。");
+                busy = false; yield break;
+            }
+            var replacement = Instantiate(prefab, transform);
+            // 新内容可用后才切换。此例不管理跨包共享依赖。
+            if (currentInstance != null) Destroy(currentInstance);
+            if (currentBundle != null) currentBundle.Unload(false);
+            currentInstance = replacement;
+            currentBundle = downloaded;
+            stagingBundle = null;
+            appliedHash = requestedHash;
+        }
+        busy = false;
+    }
+    void OnDisable()
+    {
+        if (pending != null) { pending.Abort(); pending.Dispose(); pending = null; }
+        StopAllCoroutines();
+        if (stagingBundle != null) stagingBundle.Unload(true);
+        stagingBundle = null;
+        busy = false;
+    }
+    void OnDestroy()
+    {
+        if (currentInstance != null) Destroy(currentInstance);
+        if (currentBundle != null) currentBundle.Unload(false);
+    }
+}

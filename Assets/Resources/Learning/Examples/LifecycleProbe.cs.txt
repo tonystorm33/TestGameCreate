@@ -1,0 +1,54 @@
+// 保存为 LifecycleProbe.cs；Unity 2022.3，无额外包。
+// 新建 Cube 并挂载脚本。按 Space 触发事件，禁用组件再启用观察日志。
+using System;
+using System.Collections;
+using UnityEngine;
+
+public static class LearningPulse
+{
+    public static event Action Fired;
+    public static void Raise() { Fired?.Invoke(); }
+}
+
+public sealed class LifecycleProbe : MonoBehaviour
+{
+    [SerializeField] float degreesPerSecond = 60f;
+    Coroutine heartbeat;
+    int received;
+
+    void Awake() { Debug.Log("Awake：本实例初始化", this); }
+    void OnEnable()
+    {
+        LearningPulse.Fired += ReceivePulse;
+        heartbeat = StartCoroutine(Heartbeat());
+        Debug.Log("OnEnable：订阅与计时器启动", this);
+    }
+    void Start() { Debug.Log("Start：只执行一次", this); }
+    void Update()
+    {
+        transform.Rotate(Vector3.up, degreesPerSecond * Time.deltaTime);
+        if (Input.GetKeyDown(KeyCode.Space)) LearningPulse.Raise();
+    }
+    void ReceivePulse()
+    {
+        received++;
+        Debug.Log("收到事件，累计 " + received, this);
+    }
+    IEnumerator Heartbeat()
+    {
+        var wait = new WaitForSeconds(1f);
+        while (true)
+        {
+            yield return wait;
+            Debug.Log("心跳：" + Time.time.ToString("F1"), this);
+        }
+    }
+    void OnDisable()
+    {
+        LearningPulse.Fired -= ReceivePulse;
+        if (heartbeat != null) StopCoroutine(heartbeat);
+        heartbeat = null;
+        Debug.Log("OnDisable：解除订阅并停止计时器", this);
+    }
+    void OnDestroy() { Debug.Log("OnDestroy：最终清理", this); }
+}

@@ -1,0 +1,32 @@
+1. Build
+编辑器创建两个实际 Prefab 与独立材质，BuildAssetBundles 生成包。构建输出提供 hash，GetCRCForAssetBundle 提供 CRC；清单记录真实资源路径与 Windows 平台。
+
+2. ReadManifest
+查找 StreamingAssets/LearningLabPackages/manifest.json，验证平台和两个版本。没有包时提示构建，不伪造成功。
+
+3. PrepareServer
+本机 TcpListener 实现最小 HTTP 服务，仅提供预先列出的 /v1、/v2。没有外部服务器依赖，所有请求限于 loopback。
+
+4. ApplyVersion 的前置检查
+相同已提交版本直接返回；只允许一个下载事务。根据清单选择版本、URL、hash、CRC，等待 Unity 缓存就绪。
+
+5. 下载
+GetAssetBundle → SendWebRequest。请求 timeout=8。检查 Result；失败时释放请求并保持 AppliedVersion 和旧实例不变。
+
+6. 暂存与加载
+成功后 GetContent 得到暂存包。LoadAssetAsync 按清单资源名获取 Prefab。资源不存在时卸载暂存包；仍不提交新版本。
+
+7. 提交
+先 Instantiate 新内容，再停用旧实例、卸载旧包，最后更新 currentView、currentBundle、AppliedVersion。示例两包没有共享依赖，不能直接把 Unload(true) 规则照搬到大型项目。
+
+8. 故障注入
+404 请求访问未提供路由；CRC 故障使用错误 CRC 和独立缓存版本键，防止已有有效缓存绕过检查。CRC 是内容损坏检测，不提供来源认证。
+
+9. CancelTransaction
+Abort / Dispose 请求，StopCoroutine 更新任务，释放 staging，不清掉已提交资源。退出再由 DisposeLab 释放当前资源和 HTTP 服务。
+
+10. 测试如何证明
+检查实际 Prefab 名称 V2 和版本；失败后 currentView 引用与 AppliedVersion 不变；同版本不增加 Downloads；取消后 pending/staging/Busy 归零；释放后再次成功。
+
+边界
+这是资源热更新，无 C# 代码热更新、多包磁盘事务、签名或远程 HTTPS 部署。

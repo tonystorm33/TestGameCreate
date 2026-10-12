@@ -1,0 +1,29 @@
+1. Connect
+TcpListener 绑定 loopback 随机端口。TcpClient.Connect 和 AcceptTcpClient 建立真实连接。两个端点同进程，但字节实际经过 TCP，不是直接把服务端字段赋给客户端。
+
+2. 线程边界
+后台 StreamReader.ReadLine 读取换行分帧消息，只写 ConcurrentQueue。JsonUtility、GameObject、Renderer 的操作统一发生在主线程 Pump 中。
+
+3. SendCommand
+客户端生成 kind 和单调 sequence，将 JSON + 换行写入 NetworkStream。客户端此时不会自行修改已确认的开关状态。
+
+4. Pump 服务端阶段
+只接受 toggle，且 sequence 必须大于 lastRequest。非法类型和重放请求增加 rejected，不增加 version。合法请求切换 serverValue 并生成下一版本。
+
+5. QueueSnapshot
+序列化 kind=snapshot、sequence=version 和当前 value。延迟参数是应用层排队时间；它不模拟 TCP 丢包，也不是视觉插值或客户端预测。
+
+6. ApplySnapshot
+客户端只应用比 clientVersion 更新的快照。旧版本不能把新状态覆盖。接收结果后才刷新右侧方块颜色。
+
+7. 重连
+客户端显示版本重置为 -1，再等待服务端已有权威状态；不能用旧客户端版本号当作新连接已经同步的证明。
+
+8. Dispose
+关闭 client、accepted server 和 listener，阻塞读随连接关闭结束；清理尚未发送的快照。返回目录走相同路径。
+
+9. 测试如何证明
+等待真实连接与客户端快照；检查非法请求／重放不改 version；通过真实套接字发送旧快照，确认不能覆盖；延迟窗口仍显示旧值，等待后最终一致。
+
+边界
+此例不做生产身份认证、跨机器部署、预测或 NGO。后续可将相同业务改成 RPC + NetworkVariable，并保持用例结果一致。

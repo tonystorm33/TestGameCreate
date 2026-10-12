@@ -1,0 +1,6 @@
+.lab-shell { flex-shrink: 0; width: 100%; max-width: 1240px; padding: 24px 36px; align-self: center; }
+.lab-view { flex-shrink: 0; height: 300px; margin-bottom: 20px; border-radius: 20px; background-color: rgb(226, 230, 248); }
+.lab-log { flex-shrink: 0; padding: 18px; border-radius: 16px; color: rgb(219, 232, 248); background-color: rgb(49, 54, 80); font-size: 14px; margin-bottom: 20px; }
+.lab-dashboard { flex-shrink: 0; background-color: white; border-radius: 18px; padding: 18px; margin-bottom: 18px; }
+.lab-shell Foldout { flex-shrink: 0; margin-bottom: 18px; }
+.lab-shell .code { white-space: nowrap; }
